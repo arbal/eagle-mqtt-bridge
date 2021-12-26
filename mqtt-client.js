@@ -5,20 +5,21 @@ class MqttClient {
   constructor(host, username, password, topic_base) {
     this.client = null
     this.topic_base = topic_base
-    this.host = 'mqtt://'+ host
+    this.host = 'mqtt://' + host
     if (username && password) {
       this.username = username
       this.password = password
     } else {
-      logger.warn(`No authentication for MQTT connection specified`)
+      logger.warn('Missing or incomplete credentials provided for MQTT connection.')
+      logger.warn('Will attempt unauthenticated connection.')
     }
   }
 
   connect() {
     var connectOptions = {
-        will: {topic: this.topic_base + '/availability', payload: 'Offline', retain: true}
+        will: {topic: this.topic_base + '/bridge/status', payload: 'offline', retain: true}
     }
-    if (this.username) {
+    if (this.username && this.password) {
       connectOptions.username = this.username
       connectOptions.password = this.password
     }
@@ -27,14 +28,13 @@ class MqttClient {
     this.client = mqtt.connect(this.host, connectOptions)
 
     this.client.on('error', (err) => {
-      logger.error("\x1b[31m%s\x1b[0m", 'MQTT Error: ' + err.message)
-      this.client.end()
+      logger.error('MQTT Error: ' + err.message)
     })
 
     this.client.on('connect', () => {
       logger.info('MQTT client connected')
       logger.info('Publishing to topic base: ' + this.topic_base)
-      this.client.publish(this.topic_base + '/availability', 'Online', {retain: true})
+      this.client.publish(this.topic_base + '/bridge/status', 'online', {retain: true})
     })
 
     this.client.on('close', () => {
@@ -42,8 +42,8 @@ class MqttClient {
     })
   }
 
-  sendMessage(topic, message) {
-      this.client.publish(this.topic_base + '/' + topic, message.toString())
+  sendMessage(topic, message, flag=false) {
+      this.client.publish(this.topic_base + '/' + topic, message.toString(), {retain: flag})
   }
 }
 
